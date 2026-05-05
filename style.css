@@ -1,0 +1,863 @@
+/*
+  Samsung One UI — 개발자 가이드 개념 반영
+  - 구조: developer.samsung.com/one-ui/index.html (상단 뷰잉 / 하단 인터랙션)
+  - 배경·포커스: color/system.html (차분한 배경, Type 1 포커스 블록)
+  - 시스템 색: color/system.html (Primary / Primary dark / Color control activated)
+  - 테마: color/theme.html (라이트·다크 대비, 눈에 편한 계층)
+*/
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* 라이트 팔레트 (시스템 라이트 또는 data-theme="light") */
+:root {
+  /* 배경 — 큰 면적은 차분한 단색 (Color system — Background) */
+  --bg-page: #ebebeb;
+  --bg-focus: #f7f7f7;
+  --bg-elevated: #ffffff;
+  --hairline: rgba(0, 0, 0, 0.08);
+  --text-primary: #010101;
+  --text-secondary: #5c5c5c;
+  --primary-dark: #0a4596;
+  --primary-dark-press: #073771;
+  --primary: #218bff;
+  --control-activated: #0072de;
+  --on-primary: #ffffff;
+  --reject: #d93025;
+  --reject-soft: rgba(217, 48, 37, 0.12);
+  --focus-block-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --composer-focus-ring: var(--primary-dark);
+  --btn-contained-fg: var(--on-primary);
+  --stats-bg: #f0f0f0;
+  --stats-border: rgba(0, 0, 0, 0.06);
+  --stat-progress: #b71c1c;
+  --checkbox-done: #2e7d32;
+  /* 통계 ‘완료’ 숫자 — 체크 아이콘보다 밝은 그린으로 구분 */
+  --stat-done-metric: #4caf50;
+  --due-soon: #e65100;
+  --due-soon-bg: rgba(230, 81, 0, 0.1);
+  --due-overdue: #b71c1c;
+  --due-overdue-bg: rgba(183, 28, 28, 0.08);
+  --filter-active-bg: rgba(33, 139, 255, 0.14);
+  /* 카드·필드·칩 반경을 한 계열로 맞춰 모바일~데스크톱 UI 톤 통일 */
+  --radius-focus-block: 18px;
+  --radius-field: 14px;
+  --radius-contained: 14px;
+  --radius-pill: 10px;
+  --shadow-surface: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-surface-inset: inset 0 0 0 1px var(--hairline);
+  --space-inline: 16px;
+  --space-block: 16px;
+  --space-tight: 8px;
+  --space-toolbar: 12px;
+  /* 한 열·넉넉한 폭으로 모든 뷰포트 경험 통일 */
+  --max-app-width: 480px;
+  --app-pad-x: var(--space-inline);
+  --viewport-pad-x: 0px;
+  /* 하단 고정 입력독 높이만큼 본문 패딩에 씀 — 마지막 할 일이 독에 가리지 않게 */
+  --composer-dock-offset: calc(96px + env(safe-area-inset-bottom, 0px));
+  --font-ui: "SamsungOne", "Samsung Sharp Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans KR", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg-page: #121212;
+    --bg-focus: #1e1e1e;
+    --bg-elevated: #252525;
+    --hairline: rgba(255, 255, 255, 0.08);
+    --text-primary: #f2f2f2;
+    --text-secondary: #a3a3a3;
+    --primary-dark: #6babff;
+    --primary-dark-press: #9ec6ff;
+    --primary: #8ec5ff;
+    --control-activated: #64b5ff;
+    --on-primary: #0d1117;
+    --reject: #ff6b6b;
+    --reject-soft: rgba(255, 107, 107, 0.16);
+    --focus-block-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    --composer-focus-ring: var(--control-activated);
+    --btn-contained-fg: #0d1117;
+    --stats-bg: #252525;
+    --stats-border: rgba(255, 255, 255, 0.08);
+    --stat-progress: #ff5252;
+    --checkbox-done: #66bb6a;
+    --stat-done-metric: #a5d6a7;
+    --due-soon: #ffb74d;
+    --due-soon-bg: rgba(255, 183, 77, 0.12);
+    --due-overdue: #ff8a80;
+    --due-overdue-bg: rgba(255, 138, 128, 0.12);
+    --filter-active-bg: rgba(100, 181, 255, 0.18);
+    --shadow-surface: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --shadow-surface-inset: inset 0 0 0 1px var(--hairline);
+  }
+}
+
+[data-theme="light"] {
+  --bg-page: #ebebeb;
+  --bg-focus: #f7f7f7;
+  --bg-elevated: #ffffff;
+  --hairline: rgba(0, 0, 0, 0.08);
+  --text-primary: #010101;
+  --text-secondary: #5c5c5c;
+  --primary-dark: #0a4596;
+  --primary-dark-press: #073771;
+  --primary: #218bff;
+  --control-activated: #0072de;
+  --on-primary: #ffffff;
+  --reject: #d93025;
+  --reject-soft: rgba(217, 48, 37, 0.12);
+  --focus-block-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --composer-focus-ring: var(--primary-dark);
+  --btn-contained-fg: var(--on-primary);
+  --stats-bg: #f0f0f0;
+  --stats-border: rgba(0, 0, 0, 0.06);
+  --stat-progress: #b71c1c;
+  --checkbox-done: #2e7d32;
+  --stat-done-metric: #4caf50;
+  --due-soon: #e65100;
+  --due-soon-bg: rgba(230, 81, 0, 0.1);
+  --due-overdue: #b71c1c;
+  --due-overdue-bg: rgba(183, 28, 28, 0.08);
+  --filter-active-bg: rgba(33, 139, 255, 0.14);
+  --shadow-surface: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-surface-inset: inset 0 0 0 1px var(--hairline);
+}
+
+[data-theme="dark"] {
+  --bg-page: #121212;
+  --bg-focus: #1e1e1e;
+  --bg-elevated: #252525;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --text-primary: #f2f2f2;
+  --text-secondary: #a3a3a3;
+  --primary-dark: #6babff;
+  --primary-dark-press: #9ec6ff;
+  --primary: #8ec5ff;
+  --control-activated: #64b5ff;
+  --on-primary: #0d1117;
+  --reject: #ff6b6b;
+  --reject-soft: rgba(255, 107, 107, 0.16);
+  --focus-block-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --composer-focus-ring: var(--control-activated);
+  --btn-contained-fg: #0d1117;
+  --stats-bg: #252525;
+  --stats-border: rgba(255, 255, 255, 0.08);
+  --stat-progress: #ff5252;
+  --checkbox-done: #66bb6a;
+  --stat-done-metric: #a5d6a7;
+  --due-soon: #ffb74d;
+  --due-soon-bg: rgba(255, 183, 77, 0.12);
+  --due-overdue: #ff8a80;
+  --due-overdue-bg: rgba(255, 138, 128, 0.12);
+  --filter-active-bg: rgba(100, 181, 255, 0.18);
+  --shadow-surface: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-surface-inset: inset 0 0 0 1px var(--hairline);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.viewport {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: var(--bg-page);
+  padding-inline: var(--viewport-pad-x);
+}
+
+.app-footer {
+  flex-shrink: 0;
+  width: 100%;
+  padding: var(--space-block) var(--app-pad-x) var(--space-toolbar);
+  margin-top: auto;
+  text-align: center;
+}
+
+.app-footer__text {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.app {
+  width: 100%;
+  max-width: var(--max-app-width);
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-inline: var(--app-pad-x);
+  padding-bottom: var(--composer-dock-offset);
+}
+
+/* ─── 뷰잉 영역: 제목·통계·부제만 (입력은 하단 독으로 분리) ─── */
+.app__intro {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-block);
+  padding-top: max(20px, env(safe-area-inset-top));
+  padding-bottom: var(--space-block);
+  border-bottom: none;
+}
+
+.app__viewing {
+  flex-shrink: 0;
+}
+
+.app__viewing-inner {
+  max-width: 36rem;
+}
+
+.app__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+
+.app__subtitle {
+  margin: 0;
+  font-size: clamp(13px, 2.8vw, 15px);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  max-width: 36em;
+}
+
+.app__intro-topbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: calc(var(--space-tight) * -1);
+}
+
+.btn-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-field);
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-surface);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s, box-shadow 0.15s;
+}
+
+.btn-theme__icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* SVG는 author의 display가 [hidden] 기본보다 이길 수 있어, 숨김은 !important로 고정 */
+.btn-theme .btn-theme__icon[hidden] {
+  display: none !important;
+}
+
+/* JS가 부여하는 모드 클래스와 동일한 규칙 — 인라인 style 없을 때도 해/달 하나만 보이게 */
+.btn-theme.btn-theme--state-light .btn-theme__icon--sun {
+  display: block !important;
+}
+.btn-theme.btn-theme--state-light .btn-theme__icon--moon {
+  display: none !important;
+}
+.btn-theme.btn-theme--state-dark .btn-theme__icon--sun {
+  display: none !important;
+}
+.btn-theme.btn-theme--state-dark .btn-theme__icon--moon {
+  display: block !important;
+}
+
+.btn-theme:hover {
+  background: var(--bg-focus);
+  border-color: var(--control-activated);
+}
+
+.btn-theme:active {
+  transform: scale(0.98);
+}
+
+.btn-theme:focus-visible {
+  outline: 2px solid var(--control-activated);
+  outline-offset: 2px;
+}
+
+.stats-panel {
+  margin: 0;
+  padding: var(--space-block) var(--space-inline);
+  background: var(--stats-bg);
+  border: 1px solid var(--stats-border);
+  border-radius: var(--radius-field);
+  box-shadow: var(--shadow-surface);
+}
+
+/* 상단 히어로: 가로 3등분으로 한눈에 수치 계층(숫자 크게·라벨 작게) */
+.stats-panel--hero {
+  padding-inline: var(--space-tight);
+}
+
+.stats-panel__grid {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-tight);
+  text-align: center;
+}
+
+.stats-panel__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-width: 0;
+  padding: var(--space-tight) 4px;
+}
+
+.stats-panel__dt {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.stats-panel__dd--value {
+  margin: 0;
+  font-size: clamp(1.5rem, 6vw, 1.85rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.stats-panel__cell--accent .stats-panel__dd--value {
+  color: var(--stat-progress);
+}
+
+.stats-panel__cell--accent .stats-panel__dt {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+/* 완료 열: 밝은 그린으로 완료 맥락을 시각적으로 묶음 */
+.stats-panel__cell--done .stats-panel__dd--value {
+  color: var(--stat-done-metric);
+}
+
+/* ─── 콘텐츠: Type 1 포커스 블록 (단색·기능 목록) ─── */
+.app__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-toolbar);
+}
+
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-toolbar);
+  min-height: 48px;
+}
+
+.filter-bar {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--radius-field);
+  background: var(--stats-bg);
+  border: 1px solid var(--stats-border);
+  box-shadow: var(--shadow-surface);
+  gap: 2px;
+}
+
+.filter-bar__btn {
+  margin: 0;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.filter-bar__btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+.filter-bar__btn.is-active {
+  color: var(--text-primary);
+  background: var(--filter-active-bg);
+  box-shadow: 0 0 0 1px var(--hairline);
+}
+
+.filter-bar__btn:focus-visible {
+  outline: 2px solid var(--control-activated);
+  outline-offset: 1px;
+}
+
+.btn-text {
+  margin: 0;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-field);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--reject);
+  background: transparent;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn-text:hover {
+  background: var(--reject-soft);
+}
+
+.btn-text:focus-visible {
+  outline: 2px solid var(--reject);
+  outline-offset: 2px;
+}
+
+.empty-hint {
+  margin: 0;
+  padding: 20px var(--space-inline);
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: center;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.focus-block {
+  background: var(--bg-focus);
+  border-radius: var(--radius-focus-block);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+  box-shadow: var(--shadow-surface);
+}
+
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 12px var(--space-inline);
+  background: transparent;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.todo-item:last-child {
+  border-bottom: none;
+}
+
+.todo-item--hidden {
+  display: none !important;
+}
+
+.todo-item__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.todo-item__due {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+}
+
+.todo-item--soon .todo-item__due {
+  color: var(--due-soon);
+}
+
+.todo-item--soon {
+  background: var(--due-soon-bg);
+}
+
+.todo-item--overdue .todo-item__due {
+  color: var(--due-overdue);
+}
+
+.todo-item--overdue {
+  background: var(--due-overdue-bg);
+}
+
+.todo-item__edit-input {
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 16px;
+}
+
+/* Color control activated — 체크박스 */
+.todo-item__check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 2px solid var(--text-secondary);
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.todo-item__check:active {
+  transform: scale(0.92);
+}
+
+.todo-item__check:hover {
+  border-color: var(--control-activated);
+}
+
+.todo-item__check:checked {
+  background: var(--checkbox-done);
+  border-color: var(--checkbox-done);
+}
+
+.todo-item__check:checked::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 3px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.todo-item__check:focus-visible {
+  outline: 2px solid var(--control-activated);
+  outline-offset: 2px;
+}
+
+.todo-item__text {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  color: var(--text-primary);
+  cursor: pointer;
+  word-break: break-word;
+}
+
+.todo-item__check:checked + .todo-item__body .todo-item__text {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.todo-item__check:checked + .todo-item__body .todo-item__due {
+  opacity: 0.65;
+}
+
+/* Informative — Reject: 삭제 */
+.btn-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: -6px -10px -6px 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-field);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.btn-icon__glyph {
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 300;
+}
+
+.btn-icon--reject:hover,
+.btn-icon--reject:focus-visible {
+  color: var(--reject);
+  background: var(--reject-soft);
+}
+
+.btn-icon--reject:focus-visible {
+  outline: none;
+}
+
+/* 하단 고정 입력 독 — 목록 위에 떠 있어 엄지 영역·시각적 여백 확보 */
+.composer-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  padding: var(--space-tight) max(var(--app-pad-x), env(safe-area-inset-left, 0px))
+    max(var(--space-tight), env(safe-area-inset-bottom, 0px))
+    max(var(--app-pad-x), env(safe-area-inset-right, 0px));
+  /* 토큰 배경 + 블러만으로 단순화(구형 브라우저에서도 동일) */
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--hairline);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.composer-dock__form {
+  margin: 0 auto;
+  max-width: var(--max-app-width);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-tight);
+}
+
+.composer-dock__due-wrap {
+  width: 100%;
+}
+
+.composer-dock__due {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: none;
+  border-radius: var(--radius-field);
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-focus);
+  box-shadow: var(--shadow-surface-inset);
+}
+
+.composer-dock__due::-webkit-calendar-picker-indicator {
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+.composer-dock__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-tight);
+  min-height: 52px;
+}
+
+/* 마감은 보조 기능으로 원형 아이콘만 노출해 한 줄 입력을 유지 */
+.composer-dock__due-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: var(--bg-focus);
+  color: var(--text-secondary);
+  cursor: pointer;
+  box-shadow: var(--shadow-surface);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.composer-dock__due-icon:hover {
+  border-color: var(--control-activated);
+  color: var(--text-primary);
+}
+
+.composer-dock__due-icon[aria-expanded="true"] {
+  border-color: var(--control-activated);
+  color: var(--primary-dark);
+}
+
+.composer-dock__due-icon:focus-visible {
+  outline: 2px solid var(--composer-focus-ring);
+  outline-offset: 2px;
+}
+
+.composer-dock__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-field);
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-surface-inset);
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+
+.composer-dock__input::placeholder {
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.composer-dock__input:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--composer-focus-ring);
+}
+
+/* + 제출: 기존 primary 토큰으로 원형 CTA 통일 */
+.composer-dock__fab {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  font-family: inherit;
+  color: var(--btn-contained-fg);
+  background: var(--primary-dark);
+  cursor: pointer;
+  box-shadow: var(--shadow-surface);
+  transition: background 0.15s, transform 0.08s;
+}
+
+.composer-dock__fab:hover {
+  background: var(--primary-dark-press);
+}
+
+.composer-dock__fab:active {
+  transform: scale(0.96);
+}
+
+.composer-dock__fab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.composer-dock__fab-plus {
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+  margin-top: -2px;
+}
+
+/* ─── 태블릿: 동일 토큰으로 반경·여백만 한 단계 키움 (모바일과 같은 규칙) ─── */
+@media (min-width: 600px) {
+  :root {
+    --max-app-width: 520px;
+    --app-pad-x: 24px;
+    --space-block: 20px;
+    --space-toolbar: 14px;
+    --radius-focus-block: 20px;
+    --radius-field: 15px;
+    --radius-contained: 15px;
+    --viewport-pad-x: clamp(16px, 4vw, 28px);
+  }
+
+  .app__title {
+    font-size: clamp(1.65rem, 3.2vw, 2rem);
+  }
+
+  .todo-item {
+    min-height: 56px;
+    padding: 14px var(--space-inline);
+  }
+}
+
+/* ─── 작은 데스크톱: 한 열 유지, 폭·좌우 여백만 확장 ─── */
+@media (min-width: 900px) {
+  :root {
+    --max-app-width: 540px;
+    --app-pad-x: 28px;
+    --viewport-pad-x: clamp(20px, 3.5vw, 40px);
+  }
+}
+
+/* ─── 큰 화면도 단일 열: 폭·반경만 토큰으로 키움 (2열 그리드 제거) ─── */
+@media (min-width: 1024px) {
+  :root {
+    --viewport-pad-x: clamp(24px, 5vw, 48px);
+    --max-app-width: 560px;
+    --radius-focus-block: 22px;
+    --radius-field: 16px;
+    --radius-pill: 11px;
+    --composer-dock-offset: calc(104px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --max-app-width: 600px;
+    --radius-focus-block: 24px;
+  }
+}

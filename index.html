@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>MyToDo — 일정</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="viewport">
+      <div class="app">
+        <div class="app__intro">
+          <!-- 상단 우측 테마만 유지해 한 열 레이아웃과 충돌하지 않게 함 -->
+          <div class="app__intro-topbar">
+            <button
+              id="theme-toggle"
+              class="btn-theme"
+              type="button"
+              aria-pressed="false"
+            >
+              <span class="visually-hidden">테마 전환</span>
+              <svg
+                class="btn-theme__icon btn-theme__icon--sun"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="4"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+                />
+              </svg>
+              <svg
+                class="btn-theme__icon btn-theme__icon--moon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                aria-hidden="true"
+                focusable="false"
+                hidden
+              >
+                <path
+                  fill="currentColor"
+                  d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <header class="app__viewing" aria-labelledby="app-title">
+            <div class="app__viewing-inner">
+              <h1 id="app-title" class="app__title">MyToDo</h1>
+            </div>
+          </header>
+
+          <!-- 제목 바로 아래·가로 3열로 상태를 먼저 보이게 함 (요구: 통계 상단) -->
+          <aside
+            class="stats-panel stats-panel--hero"
+            aria-label="할 일 통계"
+            aria-live="polite"
+          >
+            <dl class="stats-panel__grid">
+              <div class="stats-panel__cell">
+                <dd class="stats-panel__dd stats-panel__dd--value" id="stat-total">0</dd>
+                <dt class="stats-panel__dt">전체</dt>
+              </div>
+              <!-- 완료 수치만 밝은 그린 토큰으로 강조 -->
+              <div class="stats-panel__cell stats-panel__cell--done">
+                <dd class="stats-panel__dd stats-panel__dd--value" id="stat-done">0</dd>
+                <dt class="stats-panel__dt">완료</dt>
+              </div>
+              <div class="stats-panel__cell stats-panel__cell--accent">
+                <dd class="stats-panel__dd stats-panel__dd--value" id="stat-active">0</dd>
+                <dt class="stats-panel__dt">진행 중</dt>
+              </div>
+            </dl>
+          </aside>
+
+          <p class="app__subtitle">
+            하단에서 일정을 추가해요. 목록은 브라우저에 저장돼요.
+          </p>
+        </div>
+
+        <main class="app__content" id="main-content">
+          <h2 class="visually-hidden">할 일 목록</h2>
+          <div class="list-toolbar" role="group" aria-label="목록 보기">
+            <div class="filter-bar" role="tablist" aria-label="필터">
+              <button
+                type="button"
+                class="filter-bar__btn is-active"
+                id="filter-all"
+                role="tab"
+                aria-selected="true"
+                data-filter="all"
+              >
+                전체
+              </button>
+              <button
+                type="button"
+                class="filter-bar__btn"
+                id="filter-active"
+                role="tab"
+                aria-selected="false"
+                data-filter="active"
+              >
+                진행 중
+              </button>
+              <button
+                type="button"
+                class="filter-bar__btn"
+                id="filter-done"
+                role="tab"
+                aria-selected="false"
+                data-filter="done"
+              >
+                완료
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn-text"
+              id="clear-completed"
+              aria-label="완료된 항목 모두 삭제"
+            >
+              완료 비우기
+            </button>
+          </div>
+          <div class="focus-block">
+            <p id="empty-hint" class="empty-hint" hidden>
+              아래 + 버튼으로 첫 일정을 추가해 보세요.
+            </p>
+            <ul id="todo-list" class="todo-list"></ul>
+          </div>
+        </main>
+
+        <!-- 본문 스크롤 영역 안에 두어 하단 고정 독과 겹치지 않게 패딩만으로 여백 확보 -->
+        <footer class="app-footer" role="contentinfo">
+          <p class="app-footer__text">Made by JJorifong</p>
+        </footer>
+      </div>
+
+      <!-- 입력은 메신저형 하단 고정으로 엄지 도달·목록 가독성 개선 -->
+      <div class="composer-dock" aria-label="새 일정 입력">
+        <form id="composer-form" class="composer-dock__form" action="#" method="post">
+          <!-- 마감은 기본 접어 두고 아이콘으로만 열어 UI 단순화 -->
+          <div id="due-wrap" class="composer-dock__due-wrap" hidden>
+            <label class="visually-hidden" for="new-due">마감 일시</label>
+            <input
+              id="new-due"
+              class="composer-dock__due"
+              type="datetime-local"
+              name="due"
+              title="비워 두면 마감 없이 추가됩니다"
+            />
+          </div>
+          <div class="composer-dock__row">
+            <button
+              type="button"
+              id="due-toggle"
+              class="composer-dock__due-icon"
+              aria-label="마감 일시"
+              aria-expanded="false"
+              aria-controls="due-wrap"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="22"
+                height="22"
+                aria-hidden="true"
+                focusable="false"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </button>
+            <label class="visually-hidden" for="new-todo">일정 제목</label>
+            <input
+              id="new-todo"
+              class="composer-dock__input"
+              type="text"
+              name="todo"
+              placeholder="할 일을 입력하세요"
+              autocomplete="off"
+            />
+            <button class="composer-dock__fab" type="submit" aria-label="일정 추가">
+              <span class="composer-dock__fab-plus" aria-hidden="true">+</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
