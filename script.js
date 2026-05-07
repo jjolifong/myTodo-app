@@ -23,15 +23,15 @@
 
   function parseDue(iso) {
     if (!iso || typeof iso !== "string") return null;
-    const t = Date.parse(iso);
-    return Number.isNaN(t) ? null : t;
+    const timestampMs = Date.parse(iso);
+    return Number.isNaN(timestampMs) ? null : timestampMs;
   }
 
   function formatDueLabel(iso) {
-    const ms = parseDue(iso);
-    if (ms === null) return "";
+    const timestampMs = parseDue(iso);
+    if (timestampMs === null) return "";
     try {
-      return new Date(ms).toLocaleString("ko-KR", {
+      return new Date(timestampMs).toLocaleString("ko-KR", {
         month: "short",
         day: "numeric",
         hour: "2-digit",
@@ -44,27 +44,27 @@
 
   function isOverdue(iso, done) {
     if (done) return false;
-    const ms = parseDue(iso);
-    if (ms === null) return false;
-    return ms < Date.now();
+    const timestampMs = parseDue(iso);
+    if (timestampMs === null) return false;
+    return timestampMs < Date.now();
   }
 
   function isDueSoon(iso, done) {
     if (done) return false;
-    const ms = parseDue(iso);
-    if (ms === null) return false;
+    const timestampMs = parseDue(iso);
+    if (timestampMs === null) return false;
     const now = Date.now();
-    if (ms < now) return false;
-    return ms - now <= 24 * 60 * 60 * 1000;
+    if (timestampMs < now) return false;
+    return timestampMs - now <= 24 * 60 * 60 * 1000;
   }
 
   function sortItems(items) {
     return [...items].sort((a, b) => {
-      const ad = parseDue(a.dueAt);
-      const bd = parseDue(b.dueAt);
-      if (ad !== null && bd !== null && ad !== bd) return ad - bd;
-      if (ad !== null && bd === null) return -1;
-      if (ad === null && bd !== null) return 1;
+      const aDueMs = parseDue(a.dueAt);
+      const bDueMs = parseDue(b.dueAt);
+      if (aDueMs !== null && bDueMs !== null && aDueMs !== bDueMs) return aDueMs - bDueMs;
+      if (aDueMs !== null && bDueMs === null) return -1;
+      if (aDueMs === null && bDueMs !== null) return 1;
       return 0;
     });
   }
@@ -90,6 +90,10 @@
     };
   }
 
+  /**
+   * localStorage에서 할 일 목록을 불러온다.
+   * 키: STORAGE_KEY / 파싱 실패·빈 배열이면 null 반환.
+   */
   function loadTodosFromStorage() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -102,6 +106,10 @@
     }
   }
 
+  /**
+   * 현재 todos 배열을 localStorage에 JSON으로 저장한다.
+   * 저장 실패(용량 초과 등)는 조용히 무시한다.
+   */
   function persistTodos() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
@@ -112,7 +120,7 @@
 
   function computeStats(items) {
     const total = items.length;
-    const done = items.reduce((n, t) => n + (t.done ? 1 : 0), 0);
+    const done = items.reduce((count, t) => count + (t.done ? 1 : 0), 0);
     return { total, done, active: total - done };
   }
 
@@ -236,11 +244,11 @@
 
   function setFilterUI(filter, buttons) {
     for (let i = 0; i < buttons.length; i++) {
-      const b = buttons[i];
-      const f = b.getAttribute("data-filter");
-      const on = f === filter;
-      b.classList.toggle("is-active", on);
-      b.setAttribute("aria-selected", on ? "true" : "false");
+      const filterBtn = buttons[i];
+      const filterValue = filterBtn.getAttribute("data-filter");
+      const on = filterValue === filter;
+      filterBtn.classList.toggle("is-active", on);
+      filterBtn.setAttribute("aria-selected", on ? "true" : "false");
     }
   }
 
@@ -340,11 +348,11 @@
       const idInput = li.querySelector(".todo-item__check");
       nextLabel.htmlFor = idInput ? idInput.id : "";
       nextLabel.title = "더블클릭하여 제목 편집";
-      const v = save ? String(input.value || "").trim() : original;
-      nextLabel.textContent = v || original;
+      const committedText = save ? String(input.value || "").trim() : original;
+      nextLabel.textContent = committedText || original;
       input.replaceWith(nextLabel);
       if (save) {
-        onCommit(v || original);
+        onCommit(committedText || original);
       }
     }
 
@@ -495,6 +503,164 @@
     document.body.appendChild(root);
   }
 
+  function handleDueToggleClick(dueWrap, dueToggle, dueInput) {
+    const willShow = dueWrap.hidden;
+    dueWrap.hidden = !willShow;
+    dueToggle.setAttribute("aria-expanded", willShow ? "true" : "false");
+    if (!willShow) return;
+    dueInput.focus();
+    try {
+      if (typeof dueInput.showPicker === "function") {
+        dueInput.showPicker();
+      }
+    } catch {
+      /* 일부 브라우저/정책에서 showPicker 실패 무시 */
+    }
+  }
+
+  function handleTodoListChange(
+    e,
+    list,
+    currentFilter,
+    statTotal,
+    statDone,
+    statActive
+  ) {
+    const checkbox = e.target;
+    if (!checkbox.classList || !checkbox.classList.contains("todo-item__check")) return;
+    const row = checkbox.closest(".todo-item");
+    const id = row && row.getAttribute("data-todo-id");
+    if (!id) return;
+    const todo = findTodoById(id);
+    if (!todo) return;
+    todo.done = checkbox.checked;
+    updateRowVisual(row);
+    applyFilterClassToRows(list, currentFilter);
+    paintStats(statTotal, statDone, statActive, computeStats(todos));
+    persistTodos();
+    logDomFlow("완료 체크", [
+      "사용자: 체크박스로 완료/미완료 전환",
+      "이벤트: change (input.todo-item__check)",
+      "함수: todo.done 반영 → updateRowVisual → applyFilterClassToRows → paintStats → persistTodos",
+      "DOM: li 클래스·time·#stat-* 텍스트",
+      "화면: 브라우저 페인트(리플로우)",
+    ]);
+  }
+
+  function handleTodoListDeleteClick(
+    e,
+    list,
+    currentFilter,
+    emptyHint,
+    statTotal,
+    statDone,
+    statActive
+  ) {
+    const btn = e.target.closest(".btn-icon--reject");
+    if (!btn || !list.contains(btn)) return;
+    const row = btn.closest(".todo-item");
+    const id = row && row.getAttribute("data-todo-id");
+    if (!id || !row) return;
+    todos = todos.filter((x) => x.id !== id);
+    row.remove();
+    paintChrome(list, emptyHint, statTotal, statDone, statActive);
+    applyFilterClassToRows(list, currentFilter);
+    logDomFlow("할 일 삭제", [
+      "사용자: 행의 삭제(×) 클릭",
+      "이벤트: click (#todo-list 위임, .btn-icon--reject)",
+      "함수: todos.filter → Element.remove → paintChrome → applyFilterClassToRows",
+      "DOM: li 제거·통계·empty-hint·localStorage",
+      "화면: 브라우저 페인트",
+    ]);
+  }
+
+  function handleTodoLabelDblClick(e, list) {
+    const label = e.target.closest(".todo-item__text");
+    if (!label || !list.contains(label)) return;
+    e.preventDefault();
+    const row = label.closest(".todo-item");
+    const id = row && row.getAttribute("data-todo-id");
+    if (!id) return;
+    beginEditLabel(label, list, (nextText) => {
+      const todo = findTodoById(id);
+      if (todo) {
+        todo.text = nextText;
+        persistTodos();
+      }
+    });
+  }
+
+  function handleComposerSubmit(
+    e,
+    list,
+    titleInput,
+    dueInput,
+    currentFilter,
+    emptyHint,
+    statTotal,
+    statDone,
+    statActive
+  ) {
+    e.preventDefault();
+    const text = typeof titleInput.value === "string" ? titleInput.value.trim() : "";
+    if (!text) {
+      titleInput.focus();
+      return;
+    }
+    const dueAt = dueInputToIso(dueInput);
+    todos.push({
+      id: nextTodoId(),
+      text,
+      done: false,
+      dueAt,
+    });
+    titleInput.value = "";
+    if (dueInput) dueInput.value = "";
+    titleInput.focus();
+    renderFullList(list);
+    applyFilterClassToRows(list, currentFilter);
+    paintChrome(list, emptyHint, statTotal, statDone, statActive);
+    logDomFlow("할 일 추가", [
+      "사용자: 하단 고정 입력 + 제출(마감은 달력 아이콘으로 선택)",
+      "이벤트: submit (composer-form, composer-dock)",
+      "함수: todos.push → renderFullList → applyFilterClassToRows → paintChrome",
+      "DOM: #todo-list li 재생성·통계·empty-hint·localStorage",
+      "화면: 브라우저 페인트",
+    ]);
+  }
+
+  function handleFilterButtonClick(filterValue, list, filterButtons, setCurrentFilter) {
+    if (!filterValue) return;
+    setCurrentFilter(filterValue);
+    setFilterUI(filterValue, filterButtons);
+    applyFilterClassToRows(list, filterValue);
+    logDomFlow("필터 변경", [
+      "사용자: 전체 / 진행 중 / 완료 탭 클릭",
+      "이벤트: click (.filter-bar__btn)",
+      "함수: setFilterUI → applyFilterClassToRows",
+      "DOM: 각 li에 todo-item--hidden 클래스 토글",
+      "화면: 브라우저 페인트",
+    ]);
+  }
+
+  function handleClearCompletedClick(
+    list,
+    filterButtons,
+    emptyHint,
+    statTotal,
+    statDone,
+    statActive,
+    setCurrentFilter
+  ) {
+    todos = todos.filter((t) => !t.done);
+    const nextFilter = "all";
+    setCurrentFilter(nextFilter);
+    setFilterUI(nextFilter, filterButtons);
+    renderFullList(list);
+    applyFilterClassToRows(list, nextFilter);
+    paintChrome(list, emptyHint, statTotal, statDone, statActive);
+  }
+
   function boot() {
     installDomFlowPanel();
 
@@ -517,21 +683,7 @@
 
     /* 마감은 기본 숨김 — 아이콘으로만 열어 하단 한 줄 UX 유지 */
     if (dueToggle && dueWrap && dueInput) {
-      dueToggle.addEventListener("click", () => {
-        const willShow = dueWrap.hidden;
-        dueWrap.hidden = !willShow;
-        dueToggle.setAttribute("aria-expanded", willShow ? "true" : "false");
-        if (willShow) {
-          dueInput.focus();
-          try {
-            if (typeof dueInput.showPicker === "function") {
-              dueInput.showPicker();
-            }
-          } catch {
-            /* 일부 브라우저/정책에서 showPicker 실패 무시 */
-          }
-        }
-      });
+      dueToggle.addEventListener("click", () => handleDueToggleClick(dueWrap, dueToggle, dueInput));
     }
 
     if (!list) return;
@@ -547,120 +699,63 @@
     applyFilterClassToRows(list, currentFilter);
     paintChrome(list, emptyHint, statTotal, statDone, statActive);
 
-    list.addEventListener("change", (e) => {
-      const t = e.target;
-      if (!t.classList || !t.classList.contains("todo-item__check")) return;
-      const row = t.closest(".todo-item");
-      const id = row && row.getAttribute("data-todo-id");
-      if (!id) return;
-      const todo = findTodoById(id);
-      if (!todo) return;
-      todo.done = t.checked;
-      updateRowVisual(row);
-      applyFilterClassToRows(list, currentFilter);
-      paintStats(statTotal, statDone, statActive, computeStats(todos));
-      persistTodos();
-      logDomFlow("완료 체크", [
-        "사용자: 체크박스로 완료/미완료 전환",
-        "이벤트: change (input.todo-item__check)",
-        "함수: todo.done 반영 → updateRowVisual → applyFilterClassToRows → paintStats → persistTodos",
-        "DOM: li 클래스·time·#stat-* 텍스트",
-        "화면: 브라우저 페인트(리플로우)",
-      ]);
-    });
+    list.addEventListener("change", (e) =>
+      handleTodoListChange(e, list, currentFilter, statTotal, statDone, statActive)
+    );
 
-    list.addEventListener("click", (e) => {
-      const btn = e.target.closest(".btn-icon--reject");
-      if (!btn || !list.contains(btn)) return;
-      const row = btn.closest(".todo-item");
-      const id = row && row.getAttribute("data-todo-id");
-      if (!id || !row) return;
-      todos = todos.filter((x) => x.id !== id);
-      row.remove();
-      paintChrome(list, emptyHint, statTotal, statDone, statActive);
-      applyFilterClassToRows(list, currentFilter);
-      logDomFlow("할 일 삭제", [
-        "사용자: 행의 삭제(×) 클릭",
-        "이벤트: click (#todo-list 위임, .btn-icon--reject)",
-        "함수: todos.filter → Element.remove → paintChrome → applyFilterClassToRows",
-        "DOM: li 제거·통계·empty-hint·localStorage",
-        "화면: 브라우저 페인트",
-      ]);
-    });
+    list.addEventListener("click", (e) =>
+      handleTodoListDeleteClick(
+        e,
+        list,
+        currentFilter,
+        emptyHint,
+        statTotal,
+        statDone,
+        statActive
+      )
+    );
 
-    list.addEventListener("dblclick", (e) => {
-      const lab = e.target.closest(".todo-item__text");
-      if (!lab || !list.contains(lab)) return;
-      e.preventDefault();
-      const row = lab.closest(".todo-item");
-      const id = row && row.getAttribute("data-todo-id");
-      if (!id) return;
-      beginEditLabel(lab, list, (nextText) => {
-        const todo = findTodoById(id);
-        if (todo) {
-          todo.text = nextText;
-          persistTodos();
-        }
-      });
-    });
+    list.addEventListener("dblclick", (e) => handleTodoLabelDblClick(e, list));
 
     if (form && titleInput) {
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const text = typeof titleInput.value === "string" ? titleInput.value.trim() : "";
-        if (!text) {
-          titleInput.focus();
-          return;
-        }
-        const dueAt = dueInputToIso(dueInput);
-        todos.push({
-          id: nextTodoId(),
-          text,
-          done: false,
-          dueAt,
-        });
-        titleInput.value = "";
-        if (dueInput) dueInput.value = "";
-        titleInput.focus();
-        renderFullList(list);
-        applyFilterClassToRows(list, currentFilter);
-        paintChrome(list, emptyHint, statTotal, statDone, statActive);
-        logDomFlow("할 일 추가", [
-          "사용자: 하단 고정 입력 + 제출(마감은 달력 아이콘으로 선택)",
-          "이벤트: submit (composer-form, composer-dock)",
-          "함수: todos.push → renderFullList → applyFilterClassToRows → paintChrome",
-          "DOM: #todo-list li 재생성·통계·empty-hint·localStorage",
-          "화면: 브라우저 페인트",
-        ]);
-      });
+      form.addEventListener("submit", (e) =>
+        handleComposerSubmit(
+          e,
+          list,
+          titleInput,
+          dueInput,
+          currentFilter,
+          emptyHint,
+          statTotal,
+          statDone,
+          statActive
+        )
+      );
     }
 
-    for (let fi = 0; fi < filterButtons.length; fi++) {
-      filterButtons[fi].addEventListener("click", function () {
-        const f = this.getAttribute("data-filter");
-        if (!f) return;
-        currentFilter = f;
-        setFilterUI(currentFilter, filterButtons);
-        applyFilterClassToRows(list, currentFilter);
-        logDomFlow("필터 변경", [
-          "사용자: 전체 / 진행 중 / 완료 탭 클릭",
-          "이벤트: click (.filter-bar__btn)",
-          "함수: setFilterUI → applyFilterClassToRows",
-          "DOM: 각 li에 todo-item--hidden 클래스 토글",
-          "화면: 브라우저 페인트",
-        ]);
+    for (let filterIndex = 0; filterIndex < filterButtons.length; filterIndex++) {
+      filterButtons[filterIndex].addEventListener("click", function () {
+        const filterValue = this.getAttribute("data-filter");
+        handleFilterButtonClick(filterValue, list, filterButtons, (nextFilter) => {
+          currentFilter = nextFilter;
+        });
       });
     }
 
     if (clearBtn) {
-      clearBtn.addEventListener("click", () => {
-        todos = todos.filter((t) => !t.done);
-        currentFilter = "all";
-        setFilterUI("all", filterButtons);
-        renderFullList(list);
-        applyFilterClassToRows(list, currentFilter);
-        paintChrome(list, emptyHint, statTotal, statDone, statActive);
-      });
+      clearBtn.addEventListener("click", () =>
+        handleClearCompletedClick(
+          list,
+          filterButtons,
+          emptyHint,
+          statTotal,
+          statDone,
+          statActive,
+          (nextFilter) => {
+            currentFilter = nextFilter;
+          }
+        )
+      );
     }
 
     if (themeToggle) {
