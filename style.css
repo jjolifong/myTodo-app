@@ -519,6 +519,29 @@ body {
   display: none !important;
 }
 
+/* 드래그 가능 항목은 커서를 바꿔 상호작용 가능성을 명확히 전달 */
+.todo-item--draggable {
+  cursor: grab;
+}
+
+.todo-item--draggable:active {
+  cursor: grabbing;
+}
+
+/* 드래그 중인 항목은 반투명 처리해 현재 이동 대상을 구분 */
+.todo-item--dragging {
+  opacity: 0.45;
+}
+
+/* 드롭 위치는 상단/하단 선으로 보여 삽입 지점을 즉시 파악하게 함 */
+.todo-item--drop-before {
+  box-shadow: inset 0 2px 0 var(--control-activated);
+}
+
+.todo-item--drop-after {
+  box-shadow: inset 0 -2px 0 var(--control-activated);
+}
+
 .todo-item__body {
   flex: 1;
   min-width: 0;

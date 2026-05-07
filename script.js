@@ -9,8 +9,12 @@
   const THEME_KEY = "mytodo-theme";
   const STORAGE_KEY = "mytodo-items-v1";
 
-  /** @type {{ id: string, text: string, done: boolean, dueAt: string | null }[]} */
+  /** @type {{ id: string, text: string, done: boolean, dueAt: string | null, order: number | null }[]} */
   let todos = [];
+  /* DnD 상태는 임시 UI 정보이므로 메모리에서만 관리 */
+  let draggingTodoId = null;
+  let dropTargetTodoId = null;
+  let dropTargetEdge = "after";
 
   const $ = (id) => document.getElementById(id);
 
@@ -65,14 +69,20 @@
       if (aDueMs !== null && bDueMs !== null && aDueMs !== bDueMs) return aDueMs - bDueMs;
       if (aDueMs !== null && bDueMs === null) return -1;
       if (aDueMs === null && bDueMs !== null) return 1;
+      /* 마감 없는 항목은 사용자가 조정한 order 순서를 유지 */
+      if (aDueMs === null && bDueMs === null) {
+        const aOrder = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER;
+        const bOrder = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+      }
       return 0;
     });
   }
 
   function defaultSeed() {
     return [
-      { id: nextTodoId(), text: "프로젝트 구조 익히기", done: true, dueAt: null },
-      { id: nextTodoId(), text: "HTML·CSS·JS로 일정 앱 만들기", done: false, dueAt: null },
+      { id: nextTodoId(), text: "프로젝트 구조 익히기", done: true, dueAt: null, order: 0 },
+      { id: nextTodoId(), text: "HTML·CSS·JS로 일정 앱 만들기", done: false, dueAt: null, order: 1 },
     ];
   }
 
@@ -87,7 +97,27 @@
       text,
       done: !!raw.done,
       dueAt: raw.dueAt && typeof raw.dueAt === "string" ? raw.dueAt : null,
+      order: Number.isFinite(raw.order) ? raw.order : null,
     };
+  }
+
+  /* 과거 데이터 호환을 위해 마감 없는 항목에만 순서 인덱스를 보정 */
+  function normalizeNoDueOrderInPlace() {
+    const noDueTodos = todos.filter((todo) => parseDue(todo.dueAt) === null);
+    for (let index = 0; index < noDueTodos.length; index++) {
+      noDueTodos[index].order = index;
+    }
+  }
+
+  function nextNoDueOrder() {
+    let maxOrder = -1;
+    for (let index = 0; index < todos.length; index++) {
+      const todo = todos[index];
+      if (parseDue(todo.dueAt) !== null) continue;
+      const currentOrder = Number.isFinite(todo.order) ? todo.order : -1;
+      if (currentOrder > maxOrder) maxOrder = currentOrder;
+    }
+    return maxOrder + 1;
   }
 
   /**
@@ -166,6 +196,13 @@
     li.setAttribute("data-todo-id", todo.id);
     if (todo.dueAt) li.setAttribute("data-due-at", todo.dueAt);
     else li.removeAttribute("data-due-at");
+    if (parseDue(todo.dueAt) === null) {
+      /* 마감 없는 항목만 수동 재정렬 허용해 마감 우선 정렬과 충돌을 피함 */
+      li.draggable = true;
+      li.classList.add("todo-item--draggable");
+    } else {
+      li.draggable = false;
+    }
 
     const check = document.createElement("input");
     check.type = "checkbox";
@@ -613,6 +650,8 @@
       text,
       done: false,
       dueAt,
+      /* 마감 없는 새 항목은 드래그 정렬 기준 order를 함께 저장 */
+      order: dueAt ? null : nextNoDueOrder(),
     });
     titleInput.value = "";
     if (dueInput) dueInput.value = "";
@@ -661,6 +700,102 @@
     paintChrome(list, emptyHint, statTotal, statDone, statActive);
   }
 
+  function clearDragVisualState(list) {
+    const rows = list.querySelectorAll(".todo-item");
+    for (let index = 0; index < rows.length; index++) {
+      rows[index].classList.remove("todo-item--dragging", "todo-item--drop-before", "todo-item--drop-after");
+    }
+  }
+
+  function setDropMarker(row, edge) {
+    row.classList.toggle("todo-item--drop-before", edge === "before");
+    row.classList.toggle("todo-item--drop-after", edge === "after");
+  }
+
+  function reorderNoDueTodos(draggedId, targetId, targetEdge) {
+    const noDueTodos = todos.filter((todo) => parseDue(todo.dueAt) === null).sort((a, b) => a.order - b.order);
+    const fromIndex = noDueTodos.findIndex((todo) => todo.id === draggedId);
+    if (fromIndex < 0) return false;
+    const [draggedTodo] = noDueTodos.splice(fromIndex, 1);
+    if (!targetId) {
+      noDueTodos.push(draggedTodo);
+    } else {
+      const targetIndex = noDueTodos.findIndex((todo) => todo.id === targetId);
+      if (targetIndex < 0) return false;
+      const insertIndex = targetEdge === "before" ? targetIndex : targetIndex + 1;
+      noDueTodos.splice(insertIndex, 0, draggedTodo);
+    }
+    for (let index = 0; index < noDueTodos.length; index++) {
+      noDueTodos[index].order = index;
+    }
+    return true;
+  }
+
+  function handleTodoListDragStart(e, list) {
+    const row = e.target.closest(".todo-item--draggable");
+    if (!row || !list.contains(row)) return;
+    const targetElement = e.target;
+    if (targetElement.closest(".todo-item__check") || targetElement.closest(".btn-icon--reject")) {
+      e.preventDefault();
+      return;
+    }
+    const todoId = row.getAttribute("data-todo-id");
+    if (!todoId) return;
+    draggingTodoId = todoId;
+    row.classList.add("todo-item--dragging");
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", todoId);
+    }
+  }
+
+  function handleTodoListDragOver(e, list) {
+    if (!draggingTodoId) return;
+    e.preventDefault();
+    const row = e.target.closest(".todo-item--draggable");
+    clearDragVisualState(list);
+    const draggingRow = list.querySelector('.todo-item[data-todo-id="' + draggingTodoId + '"]');
+    if (draggingRow) draggingRow.classList.add("todo-item--dragging");
+    if (!row || !list.contains(row) || row.getAttribute("data-todo-id") === draggingTodoId) {
+      dropTargetTodoId = null;
+      dropTargetEdge = "after";
+      return;
+    }
+    const rect = row.getBoundingClientRect();
+    const edge = e.clientY < rect.top + rect.height / 2 ? "before" : "after";
+    setDropMarker(row, edge);
+    dropTargetTodoId = row.getAttribute("data-todo-id");
+    dropTargetEdge = edge;
+  }
+
+  function handleTodoListDrop(e, list, currentFilter, emptyHint, statTotal, statDone, statActive) {
+    if (!draggingTodoId) return;
+    e.preventDefault();
+    const moved = reorderNoDueTodos(draggingTodoId, dropTargetTodoId, dropTargetEdge);
+    draggingTodoId = null;
+    dropTargetTodoId = null;
+    dropTargetEdge = "after";
+    clearDragVisualState(list);
+    if (!moved) return;
+    renderFullList(list);
+    applyFilterClassToRows(list, currentFilter);
+    paintChrome(list, emptyHint, statTotal, statDone, statActive);
+    logDomFlow("순서 변경", [
+      "사용자: 항목 드래그 앤 드롭",
+      "이벤트: dragstart → dragover → drop",
+      "함수: reorderNoDueTodos → renderFullList → paintChrome",
+      "DOM: no-due 행 순서 재배치",
+      "화면: 브라우저 페인트",
+    ]);
+  }
+
+  function handleTodoListDragEnd(list) {
+    draggingTodoId = null;
+    dropTargetTodoId = null;
+    dropTargetEdge = "after";
+    clearDragVisualState(list);
+  }
+
   function boot() {
     installDomFlowPanel();
 
@@ -694,6 +829,7 @@
     } else {
       todos = defaultSeed();
     }
+    normalizeNoDueOrderInPlace();
 
     renderFullList(list);
     applyFilterClassToRows(list, currentFilter);
@@ -716,6 +852,13 @@
     );
 
     list.addEventListener("dblclick", (e) => handleTodoLabelDblClick(e, list));
+    /* HTML5 Drag and Drop 연결은 목록 위임 방식으로 묶어 성능·유지보수성을 확보 */
+    list.addEventListener("dragstart", (e) => handleTodoListDragStart(e, list));
+    list.addEventListener("dragover", (e) => handleTodoListDragOver(e, list));
+    list.addEventListener("drop", (e) =>
+      handleTodoListDrop(e, list, currentFilter, emptyHint, statTotal, statDone, statActive)
+    );
+    list.addEventListener("dragend", () => handleTodoListDragEnd(list));
 
     if (form && titleInput) {
       form.addEventListener("submit", (e) =>
